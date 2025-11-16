@@ -10,7 +10,7 @@ const api = axios.create({
 
 // APIレスポンスの型
 export type ApiResponse<T> = {
-  data: T;
+  data: T | null;
   error?: string;
 };
 
@@ -30,7 +30,7 @@ export const apiClient = {
       const res = await api.get<T>(url);
       return { data: res.data };
     } catch (e) {
-      return { data: null as any, error: handleApiError(e) };
+      return { data: null, error: handleApiError(e) };
     }
   },
 
@@ -39,7 +39,7 @@ export const apiClient = {
       const res = await api.post<T>(url, body);
       return { data: res.data };
     } catch (e) {
-      return { data: null as any, error: handleApiError(e) };
+      return { data: null, error: handleApiError(e) };
     }
   },
 };
