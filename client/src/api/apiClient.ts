@@ -1,5 +1,5 @@
 // features/stepq/api/apiClient.ts
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
 
 // 共通Axiosインスタンス
 const api = axios.create({
@@ -25,18 +25,18 @@ const handleApiError = (error: unknown): string => {
 
 // GET / POST / PUT / DELETE のラッパ
 export const apiClient = {
-  async get<T>(url: string): Promise<ApiResponse<T>> {
+  async get<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
-      const res = await api.get<T>(url);
+      const res = await api.get<T>(url, config);
       return { data: res.data };
     } catch (e) {
       return { data: null, error: handleApiError(e) };
     }
   },
 
-  async post<T>(url: string, body: unknown): Promise<ApiResponse<T>> {
+  async post<T>(url: string, body: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
-      const res = await api.post<T>(url, body);
+      const res = await api.post<T>(url, body, config);
       return { data: res.data };
     } catch (e) {
       return { data: null, error: handleApiError(e) };
