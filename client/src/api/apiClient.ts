@@ -33,7 +33,6 @@ export const apiClient = {
       return { data: null, error: handleApiError(e) };
     }
   },
-
   async post<T>(url: string, body: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
       const res = await api.post<T>(url, body, config);
