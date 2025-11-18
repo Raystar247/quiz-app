@@ -1,44 +1,79 @@
-// features/stepq/api/apiClient.ts
+// apiClient.ts
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
+import type { ApiError } from './types/errorTypes';
+import type { ApiResponse, Validator } from './types/apiTypes';
 
-// 共通Axiosインスタンス
+// Axiosインスタンス
 const api = axios.create({
-  baseURL: 'http://localhost:3001', // import.meta.env.VITE_API_BASE_URL || 'https://api.example.com', // TODO: URLを設定する
+  baseURL: 'http://localhost:3001',
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// APIレスポンスの型
-export type ApiResponse<T> = {
-  data: T | null;
-  error?: string;
-};
-
-// 共通エラーハンドリング関数
-const handleApiError = (error: unknown): string => {
+// 共通エラーハンドリング
+const handleApiError = (error: unknown): ApiError => {
   if (axios.isAxiosError(error)) {
     const err = error as AxiosError<{ message?: string }>;
-    return err.response?.data?.message || err.message;
+    return {
+      type: 'network',
+      message: err.response?.data?.message || err.message,
+    };
   }
-  return 'Unexpected error occurred';
+  return { type: 'network', message: 'Unexpected error occurred' };
 };
 
-// GET / POST / PUT / DELETE のラッパ
+// 共通バリデーションチェック
+const validate = <T>(data: T, validator?: Validator<T>): ApiError | null => {
+  return validator ? validator(data) : null;
+};
+
+// --- 内部専用関数 ---
+const request = async <T>(
+  method: 'get' | 'post' | 'put' | 'delete',
+  url: string,
+  bodyOrConfig?: unknown | AxiosRequestConfig,
+  configOrValidator?: AxiosRequestConfig | Validator<T>,
+  maybeValidator?: Validator<T>
+): Promise<ApiResponse<T>> => {
+  try {
+    let res;
+
+    if (method === 'get' || method === 'delete') {
+      const config = configOrValidator as AxiosRequestConfig | undefined;
+      res = method === 'get' ? await api.get<T>(url, config) : await api.delete<T>(url, config);
+    } else {
+      const body = bodyOrConfig as unknown;
+      const config = configOrValidator as AxiosRequestConfig | undefined;
+      res = method === 'post' ? await api.post<T>(url, body, config) : await api.put<T>(url, body, config);
+    }
+
+    // バリデーション
+    const validator = maybeValidator ?? (configOrValidator as Validator<T> | undefined);
+    const validationError = validate(res.data, validator);
+    if (validationError) return { data: null, error: validationError };
+
+    return { data: res.data };
+  } catch (e) {
+    return { data: null, error: handleApiError(e) };
+  }
+};
+
+// --- 外部向けapiClient ---
 export const apiClient = {
-  async get<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    try {
-      const res = await api.get<T>(url, config);
-      return { data: res.data };
-    } catch (e) {
-      return { data: null, error: handleApiError(e) };
-    }
+  get<T>(url: string, config?: AxiosRequestConfig, validator?: Validator<T>) {
+    return request<T>('get', url, config, validator);
   },
-  async post<T>(url: string, body: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    try {
-      const res = await api.post<T>(url, body, config);
-      return { data: res.data };
-    } catch (e) {
-      return { data: null, error: handleApiError(e) };
-    }
+
+  post<T>(url: string, body: unknown, config?: AxiosRequestConfig, validator?: Validator<T>) {
+    return request<T>('post', url, body, config, validator);
+  },
+
+  put<T>(url: string, body: unknown, config?: AxiosRequestConfig, validator?: Validator<T>) {
+    return request<T>('put', url, body, config, validator);
+  },
+
+  delete<T>(url: string, config?: AxiosRequestConfig, validator?: Validator<T>) {
+    return request<T>('delete', url, config, validator);
   },
 };
+
